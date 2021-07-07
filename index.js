@@ -118,7 +118,7 @@ function getContentType(codec) {
 }
 
 serverAPIRouter
-    .use((req, res, next) => {
+    .use(async (req, res, next) => {
         if (req.body.AUTH_PASSWORD === process.env.API_PASSWORD) {
             next();
         } else {
@@ -221,7 +221,9 @@ serverAPIRouter
 
         if (!j.assembledData || !j.finished) return res.status(404);
 
-        return res.status(200);
+        res.status(200);
+        res.setHeader("Content-Type", getContentType(j.codec));
+        res.setHeader("Content-Length", JSON.parse(j.assembledData).size);
     })
     .get("/download/:id", async (req, res) => {
         if (isNaN(+req.params.id)) return res.status(400).json({ error: "Job ID is required." });
@@ -244,20 +246,20 @@ serverAPIRouter
                 res.setHeader("Content-Length", req.range.ranges.reduce((a, v) => a + v.last - v.first + 1, 0));
 
                 for (let range in req.range.ranges) {
-                    await downloadChunkData(j.assembledData, res, {
+                    await downloadChunkData(JSON.parse(j.assembledData), res, {
                         ...range,
                         unit: req.range.unit
                     }, getContentType(j.codec), true);
                 }
                 res.close();
             } else {
-                await downloadChunkData(j.assembledData, res, req.range, getContentType(j.codec), false);
+                await downloadChunkData(JSON.parse(j.assembledData), res, req.range, getContentType(j.codec), false);
                 res.close();
             }
         } else {
             // Download and stream everything
             res.status(200);
-            await downloadChunkData(j.assembledData, res, {
+            await downloadChunkData(JSON.parse(j.assembledData), res, {
                 unit: "bytes",
                 first: 0
             }, getContentType(j.codec), false);
